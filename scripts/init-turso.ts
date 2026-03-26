@@ -1,5 +1,5 @@
 import dotenv from 'dotenv';
-import { createClient } from '@libsql/client';
+import { createClient } from '@libsql/client/web';
 
 dotenv.config({ path: '.env.local' });
 dotenv.config();
