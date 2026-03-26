@@ -8,6 +8,7 @@
     "dev:web": "vite --port=3000 --host=0.0.0.0",
     "dev:server": "tsx watch server.ts",
     "build": "vite build",
+    "db:init": "tsx scripts/init-turso.ts",
     "start": "node --loader tsx server.ts",
     "preview": "vite preview",
     "clean": "rm -rf dist",

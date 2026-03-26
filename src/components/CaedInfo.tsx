@@ -36,24 +36,24 @@ export default function CaedInfo() {
       <section className="bg-slate-900 text-white p-8 rounded-3xl space-y-6">
         <div className="flex items-center gap-3">
           <Info className="text-blue-400" />
-          <h2 className="text-2xl font-bold">Orientações para a Prova</h2>
+          <h2 className="text-2xl font-bold">Orientações de Impressão</h2>
         </div>
         <ul className="grid md:grid-cols-2 gap-4 text-slate-300">
           <li className="flex items-start gap-2">
             <span className="w-1.5 h-1.5 bg-blue-400 rounded-full mt-2 shrink-0"></span>
-            Verifique a quantidade de cadernos de prova recebidos.
+            Não deixe para imprimir tudo de uma vez.
           </li>
           <li className="flex items-start gap-2">
             <span className="w-1.5 h-1.5 bg-blue-400 rounded-full mt-2 shrink-0"></span>
-            Garanta que as salas estejam organizadas e silenciosas.
+            Separe em lotes para que a impressora não se sobrecarregue.
           </li>
           <li className="flex items-start gap-2">
             <span className="w-1.5 h-1.5 bg-blue-400 rounded-full mt-2 shrink-0"></span>
-            Confira se a impressora e o toner estão prontos para uso emergencial.
+            Anote a quantidade aproximada de cópias impressas para a prova.
           </li>
           <li className="flex items-start gap-2">
             <span className="w-1.5 h-1.5 bg-blue-400 rounded-full mt-2 shrink-0"></span>
-            Mantenha as atas de aplicação devidamente preenchidas.
+            Anote as impressões que deram errado.
           </li>
         </ul>
       </section>
