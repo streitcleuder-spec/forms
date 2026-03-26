@@ -4,6 +4,14 @@ export interface ClassInfo {
   studentCount: number;
 }
 
+export interface PrinterInfo {
+  id: string;
+  tpscNumber: string;
+  location: string;
+  isGood: boolean;
+  tonerLevel: number;
+}
+
 export interface AssessmentData {
   id: string;
   schoolName: string;
@@ -11,7 +19,8 @@ export interface AssessmentData {
   hasSpareToner: boolean;
   isPrinterGood: boolean;
   printerTpscNumber?: string;
-  printerQuadro?: string;
+  printerLocation?: string;
+  printers?: PrinterInfo[];
   tonerLevel: number;
   submittedAt: string;
 }

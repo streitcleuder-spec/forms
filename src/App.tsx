@@ -105,8 +105,22 @@ export default function App() {
 
     const totalStudents = data.classes.reduce((sum, c) => sum + c.studentCount, 0);
     const submittedAt = new Date(data.submittedAt).toLocaleString('pt-BR');
-    const printerTpscNumber = (data.printerTpscNumber ?? '').trim() || '—';
-    const printerQuadro = (data.printerQuadro ?? '').trim() || '—';
+    const legacyTpscNumber = (data.printerTpscNumber ?? '').trim();
+    const legacyLocation = (data.printerLocation ?? (data as any).printerQuadro ?? '').trim();
+    const printers =
+      data.printers && data.printers.length
+        ? data.printers
+        : legacyTpscNumber || legacyLocation
+          ? [
+              {
+                id: 'legacy',
+                tpscNumber: legacyTpscNumber || '—',
+                location: legacyLocation || '—',
+                isGood: !!data.isPrinterGood,
+                tonerLevel: Number(data.tonerLevel) || 0,
+              },
+            ]
+          : [];
 
     const classesRows = data.classes
       .map(
@@ -114,6 +128,19 @@ export default function App() {
           <tr>
             <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0;">${escapeHtml(c.name)}</td>
             <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; text-align: right;">${Number(c.studentCount) || 0}</td>
+          </tr>
+        `,
+      )
+      .join('');
+
+    const printersRows = printers
+      .map(
+        (p) => `
+          <tr>
+            <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0;">${escapeHtml(p.tpscNumber)}</td>
+            <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0;">${escapeHtml(p.location)}</td>
+            <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; text-align: center;">${p.isGood ? 'Sim' : 'Não'}</td>
+            <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; text-align: right;">${Number(p.tonerLevel) || 0}%</td>
           </tr>
         `,
       )
@@ -166,15 +193,25 @@ export default function App() {
             <div style="font-size: 16px; font-weight: 800; margin-top: 6px;">${data.isPrinterGood ? 'Sim' : 'Não'}</div>
           </div>
           <div style="flex:1; border: 1px solid #e2e8f0; border-radius: 14px; padding: 12px 14px;">
-            <div style="font-size: 12px; color: #475569; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;">Número TPSC</div>
-            <div style="font-size: 16px; font-weight: 800; margin-top: 6px;">${escapeHtml(printerTpscNumber)}</div>
+            <div style="font-size: 12px; color: #475569; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;">Impressoras</div>
+            <div style="font-size: 16px; font-weight: 800; margin-top: 6px;">${printers.length}</div>
           </div>
         </div>
 
-        <div style="border: 1px solid #e2e8f0; border-radius: 14px; padding: 12px 14px; margin-bottom: 16px;">
-          <div style="font-size: 12px; color: #475569; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;">Quadro</div>
-          <div style="font-size: 16px; font-weight: 800; margin-top: 6px;">${escapeHtml(printerQuadro)}</div>
-        </div>
+        <div style="font-size: 14px; font-weight: 800; margin-bottom: 10px;">Impressoras</div>
+        <table style="width: 100%; border-collapse: collapse; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; margin-bottom: 16px;">
+          <thead>
+            <tr style="background: #0f172a; color: white;">
+              <th style="padding: 10px 12px; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em;">TPSc</th>
+              <th style="padding: 10px 12px; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em;">Localização</th>
+              <th style="padding: 10px 12px; text-align: center; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em;">Boas condições</th>
+              <th style="padding: 10px 12px; text-align: right; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em;">Toner</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${printersRows || `<tr><td colspan="4" style="padding: 10px 12px; color:#64748b;">—</td></tr>`}
+          </tbody>
+        </table>
 
         <div style="font-size: 14px; font-weight: 800; margin-bottom: 10px;">Turmas e alunos que farão a prova</div>
         <table style="width: 100%; border-collapse: collapse; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden;">

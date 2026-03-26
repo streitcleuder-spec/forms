@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Save, FileText, Printer, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ClassInfo, AssessmentData } from '../types';
+import { ClassInfo, AssessmentData, PrinterInfo } from '../types';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
@@ -10,16 +10,13 @@ interface AssessmentFormProps {
 }
 
 export default function AssessmentForm({ onSuccess }: AssessmentFormProps) {
-  const [schoolName, setSchoolName] = useState('');
-  const [classes, setClasses] = useState<ClassInfo[]>([{ id: crypto.randomUUID(), name: '', studentCount: 0 }]);
-  const [hasSpareToner, setHasSpareToner] = useState<boolean | null>(null);
-  const [isPrinterGood, setIsPrinterGood] = useState<boolean | null>(null);
-  const [printerTpscNumber, setPrinterTpscNumber] = useState('');
-  const [printerQuadro, setPrinterQuadro] = useState('');
-  const [tonerLevel, setTonerLevel] = useState(50);
-  const [isSubmitted, setIsSubmitted] = useState(false);
-  const [lastSubmittedData, setLastSubmittedData] = useState<AssessmentData | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  type PrinterForm = {
+    id: string;
+    tpscNumber: string;
+    location: string;
+    isGood: boolean | null;
+    tonerLevel: number;
+  };
 
   const generateId = () => {
     try {
@@ -29,7 +26,21 @@ export default function AssessmentForm({ onSuccess }: AssessmentFormProps) {
     }
   };
 
+  const [schoolName, setSchoolName] = useState('');
+  const [classes, setClasses] = useState<ClassInfo[]>([{ id: crypto.randomUUID(), name: '', studentCount: 0 }]);
+  const [hasSpareToner, setHasSpareToner] = useState<boolean | null>(null);
+  const [printers, setPrinters] = useState<PrinterForm[]>([
+    { id: crypto.randomUUID(), tpscNumber: '', location: '', isGood: null, tonerLevel: 50 },
+  ]);
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [lastSubmittedData, setLastSubmittedData] = useState<AssessmentData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
   const totalStudents = classes.reduce((sum, c) => sum + (Number(c.studentCount) || 0), 0);
+  const overallTonerLevel = printers.length
+    ? Math.round(printers.reduce((sum, p) => sum + (Number(p.tonerLevel) || 0), 0) / printers.length)
+    : 0;
+  const overallIsPrinterGood = printers.length ? printers.every((p) => p.isGood === true) : false;
 
   const addClass = () => {
     setClasses([...classes, { id: generateId(), name: '', studentCount: 0 }]);
@@ -46,6 +57,18 @@ export default function AssessmentForm({ onSuccess }: AssessmentFormProps) {
     setClasses(classes.map(c => c.id === id ? { ...c, [field]: val } : c));
   };
 
+  const addPrinter = () => {
+    setPrinters((prev) => [...prev, { id: generateId(), tpscNumber: '', location: '', isGood: null, tonerLevel: 50 }]);
+  };
+
+  const removePrinter = (id: string) => {
+    setPrinters((prev) => (prev.length > 1 ? prev.filter((p) => p.id !== id) : prev));
+  };
+
+  const updatePrinter = <K extends keyof PrinterForm>(id: string, field: K, value: PrinterForm[K]) => {
+    setPrinters((prev) => prev.map((p) => (p.id === id ? { ...p, [field]: value } : p)));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -58,28 +81,41 @@ export default function AssessmentForm({ onSuccess }: AssessmentFormProps) {
       setError('Informe se a escola tem toner reserva.');
       return;
     }
-    if (isPrinterGood === null) {
-      setError('Informe as condições da impressora.');
+    if (!printers.length) {
+      setError('Adicione pelo menos uma impressora.');
       return;
     }
-    if (!printerTpscNumber.trim()) {
-      setError('Informe o Número TPSC.');
+    if (printers.some((p) => !p.tpscNumber.trim())) {
+      setError('Informe o Número TPSC de todas as impressoras.');
       return;
     }
-    if (!printerQuadro.trim()) {
-      setError('Informe o Quadro.');
+    if (printers.some((p) => !p.location.trim())) {
+      setError('Informe a localização de todas as impressoras.');
       return;
     }
+    if (printers.some((p) => p.isGood === null)) {
+      setError('Informe se cada impressora está em boas condições (Sim/Não).');
+      return;
+    }
+
+    const printersPayload: PrinterInfo[] = printers.map((p) => ({
+      id: p.id,
+      tpscNumber: p.tpscNumber.trim(),
+      location: p.location.trim(),
+      isGood: p.isGood === true,
+      tonerLevel: Number(p.tonerLevel) || 0,
+    }));
 
     const data: AssessmentData = {
       id: generateId(),
       schoolName,
       classes,
       hasSpareToner,
-      isPrinterGood,
-      printerTpscNumber,
-      printerQuadro,
-      tonerLevel,
+      isPrinterGood: overallIsPrinterGood,
+      tonerLevel: overallTonerLevel,
+      printerTpscNumber: printersPayload[0]?.tpscNumber ?? '',
+      printerLocation: printersPayload[0]?.location ?? '',
+      printers: printersPayload,
       submittedAt: new Date().toISOString()
     };
 
@@ -137,10 +173,18 @@ export default function AssessmentForm({ onSuccess }: AssessmentFormProps) {
           <p><strong>Escola:</strong> {lastSubmittedData?.schoolName}</p>
           <p><strong>Total de Alunos:</strong> {lastSubmittedData?.classes.reduce((sum, c) => sum + c.studentCount, 0)}</p>
           <p><strong>Toner Reserva:</strong> {lastSubmittedData?.hasSpareToner ? 'Sim' : 'Não'}</p>
-          <p><strong>Impressora:</strong> {lastSubmittedData?.isPrinterGood ? 'Boas condições' : 'Necessita manutenção'}</p>
-          <p><strong>Número TPSC:</strong> {lastSubmittedData?.printerTpscNumber}</p>
-          <p><strong>Quadro:</strong> {lastSubmittedData?.printerQuadro}</p>
-          <p><strong>Nível do Toner:</strong> {lastSubmittedData?.tonerLevel}%</p>
+          <p><strong>Impressoras em boas condições:</strong> {lastSubmittedData?.isPrinterGood ? 'Sim' : 'Não'}</p>
+          <p><strong>Nível médio do toner:</strong> {lastSubmittedData?.tonerLevel}%</p>
+          <div className="mt-4">
+            <p className="font-semibold mb-2">Impressoras:</p>
+            <ul className="list-disc pl-5 space-y-1">
+              {(lastSubmittedData?.printers ?? []).map((p) => (
+                <li key={p.id}>
+                  {p.tpscNumber} — {p.location} — {p.isGood ? 'Sim' : 'Não'} — {p.tonerLevel}%
+                </li>
+              ))}
+            </ul>
+          </div>
           <div className="mt-4">
             <p className="font-semibold mb-2">Turmas e alunos que farão a prova:</p>
             <ul className="list-disc pl-5 space-y-1">
@@ -242,96 +286,139 @@ export default function AssessmentForm({ onSuccess }: AssessmentFormProps) {
           </div>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-8">
-          <div className="space-y-4">
-            <label className="text-sm font-semibold text-slate-500 uppercase tracking-wider block">Toner Reserva?</label>
-            <div className="flex gap-4">
-              <button
-                type="button"
-                onClick={() => setHasSpareToner(true)}
-                className={`flex-1 py-3 rounded-xl font-semibold border-2 transition-all ${
-                  hasSpareToner === true ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-200 text-slate-600 hover:border-blue-200'
-                }`}
-              >
-                Sim
-              </button>
-              <button
-                type="button"
-                onClick={() => setHasSpareToner(false)}
-                className={`flex-1 py-3 rounded-xl font-semibold border-2 transition-all ${
-                  hasSpareToner === false ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-200 text-slate-600 hover:border-blue-200'
-                }`}
-              >
-                Não
-              </button>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <label className="text-sm font-semibold text-slate-500 uppercase tracking-wider block">Impressora em boas condições?</label>
-            <div className="flex gap-4">
-              <button
-                type="button"
-                onClick={() => setIsPrinterGood(true)}
-                className={`flex-1 py-3 rounded-xl font-semibold border-2 transition-all ${
-                  isPrinterGood === true ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-200 text-slate-600 hover:border-blue-200'
-                }`}
-              >
-                Sim
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsPrinterGood(false)}
-                className={`flex-1 py-3 rounded-xl font-semibold border-2 transition-all ${
-                  isPrinterGood === false ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-200 text-slate-600 hover:border-blue-200'
-                }`}
-              >
-                Não
-              </button>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">Número TPSC</label>
-                <input
-                  type="text"
-                  required
-                  value={printerTpscNumber}
-                  onChange={(e) => setPrinterTpscNumber(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
-                  placeholder="Ex: 12345"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">Quadro</label>
-                <input
-                  type="text"
-                  required
-                  value={printerQuadro}
-                  onChange={(e) => setPrinterQuadro(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
-                  placeholder="Ex: A"
-                />
-              </div>
-            </div>
+        <div className="space-y-4">
+          <label className="text-sm font-semibold text-slate-500 uppercase tracking-wider block">Toner Reserva?</label>
+          <div className="flex gap-4">
+            <button
+              type="button"
+              onClick={() => setHasSpareToner(true)}
+              className={`flex-1 py-3 rounded-xl font-semibold border-2 transition-all ${
+                hasSpareToner === true ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-200 text-slate-600 hover:border-blue-200'
+              }`}
+            >
+              Sim
+            </button>
+            <button
+              type="button"
+              onClick={() => setHasSpareToner(false)}
+              className={`flex-1 py-3 rounded-xl font-semibold border-2 transition-all ${
+                hasSpareToner === false ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-200 text-slate-600 hover:border-blue-200'
+              }`}
+            >
+              Não
+            </button>
           </div>
         </div>
 
         <div className="space-y-4">
           <div className="flex justify-between items-center">
-            <label className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Nível aproximado do Toner</label>
-            <span className="font-bold text-blue-600">{tonerLevel}%</span>
+            <label className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Impressoras</label>
+            <button
+              type="button"
+              onClick={addPrinter}
+              className="flex items-center gap-1 text-blue-600 hover:text-blue-700 font-medium text-sm"
+            >
+              <Plus size={16} />
+              Adicionar Impressora
+            </button>
           </div>
-          <input
-            type="range"
-            min="0"
-            max="100"
-            value={tonerLevel}
-            onChange={(e) => setTonerLevel(parseInt(e.target.value))}
-            className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
-          />
-          <div className="flex justify-between text-xs text-slate-400 font-medium">
-            <span>VAZIO</span>
-            <span>CHEIO</span>
+
+          <div className="space-y-3">
+            <AnimatePresence mode="popLayout">
+              {printers.map((p) => (
+                <motion.div
+                  key={p.id}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 10 }}
+                  className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-4"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-sm font-semibold text-slate-700">Impressora</div>
+                    <button
+                      type="button"
+                      onClick={() => removePrinter(p.id)}
+                      className="p-2 text-slate-400 hover:text-red-500 transition-colors"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">Número TPSC</label>
+                      <input
+                        type="text"
+                        required
+                        value={p.tpscNumber}
+                        onChange={(e) => updatePrinter(p.id, 'tpscNumber', e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
+                        placeholder="Ex: 12345"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">Localização</label>
+                      <input
+                        type="text"
+                        required
+                        value={p.location}
+                        onChange={(e) => updatePrinter(p.id, 'location', e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
+                        placeholder="Ex: Secretaria"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">Impressora em boas condições?</label>
+                    <div className="flex gap-4">
+                      <button
+                        type="button"
+                        onClick={() => updatePrinter(p.id, 'isGood', true)}
+                        className={`flex-1 py-2.5 rounded-xl font-semibold border-2 transition-all ${
+                          p.isGood === true ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-200 text-slate-600 hover:border-blue-200 bg-white'
+                        }`}
+                      >
+                        Sim
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => updatePrinter(p.id, 'isGood', false)}
+                        className={`flex-1 py-2.5 rounded-xl font-semibold border-2 transition-all ${
+                          p.isGood === false ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-200 text-slate-600 hover:border-blue-200 bg-white'
+                        }`}
+                      >
+                        Não
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Nível aproximado do toner</label>
+                      <span className="font-bold text-blue-600">{p.tonerLevel}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={p.tonerLevel}
+                      onChange={(e) => updatePrinter(p.id, 'tonerLevel', parseInt(e.target.value))}
+                      className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                    />
+                    <div className="flex justify-between text-xs text-slate-400 font-medium">
+                      <span>VAZIO</span>
+                      <span>CHEIO</span>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+
+          <div className="p-4 bg-blue-50 rounded-2xl flex justify-between items-center">
+            <span className="font-semibold text-blue-900">Nível médio do toner:</span>
+            <span className="text-2xl font-bold text-blue-600">{overallTonerLevel}%</span>
           </div>
         </div>
 

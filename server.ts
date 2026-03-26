@@ -25,6 +25,7 @@ await db.execute(`
     is_printer_good INTEGER NOT NULL,
     printer_tpsc TEXT,
     printer_quadro TEXT,
+    printers_json TEXT,
     toner_level INTEGER NOT NULL,
     submitted_at TEXT NOT NULL
   );
@@ -38,6 +39,9 @@ if (!cols.has('printer_tpsc')) {
 if (!cols.has('printer_quadro')) {
   await db.execute(`ALTER TABLE assessments ADD COLUMN printer_quadro TEXT;`);
 }
+if (!cols.has('printers_json')) {
+  await db.execute(`ALTER TABLE assessments ADD COLUMN printers_json TEXT;`);
+}
 
 const app = express();
 app.use(cors());
@@ -50,21 +54,43 @@ app.get('/api/health', (_req, res) => {
 app.get('/api/assessments', async (_req, res) => {
   try {
     const result = await db.execute(
-      `SELECT id, school_name, classes_json, has_spare_toner, is_printer_good, printer_tpsc, printer_quadro, toner_level, submitted_at
+      `SELECT id, school_name, classes_json, has_spare_toner, is_printer_good, printer_tpsc, printer_quadro, printers_json, toner_level, submitted_at
        FROM assessments
        ORDER BY submitted_at DESC`,
     );
 
     const toBool = (v: unknown) => v === 1 || v === true || v === '1';
+    const safeParsePrinters = (raw: unknown) => {
+      if (raw == null) return null;
+      const text = String(raw);
+      if (!text.trim()) return null;
+      try {
+        const parsed = JSON.parse(text);
+        return Array.isArray(parsed) ? parsed : null;
+      } catch {
+        return null;
+      }
+    };
     const items = result.rows.map((row) => ({
       id: String(row.id),
       schoolName: String(row.school_name),
       classes: JSON.parse(String(row.classes_json ?? '[]')),
       hasSpareToner: toBool(row.has_spare_toner),
       isPrinterGood: toBool(row.is_printer_good),
-      printerTpscNumber: row.printer_tpsc == null ? '' : String(row.printer_tpsc),
-      printerQuadro: row.printer_quadro == null ? '' : String(row.printer_quadro),
       tonerLevel: Number(row.toner_level),
+      printerTpscNumber: row.printer_tpsc == null ? '' : String(row.printer_tpsc),
+      printerLocation: row.printer_quadro == null ? '' : String(row.printer_quadro),
+      printers:
+        safeParsePrinters(row.printers_json) ??
+        [
+          {
+            id: 'legacy',
+            tpscNumber: row.printer_tpsc == null ? '' : String(row.printer_tpsc),
+            location: row.printer_quadro == null ? '' : String(row.printer_quadro),
+            isGood: toBool(row.is_printer_good),
+            tonerLevel: Number(row.toner_level),
+          },
+        ].filter((p) => p.tpscNumber || p.location),
       submittedAt: String(row.submitted_at),
     }));
 
@@ -83,7 +109,8 @@ app.post('/api/assessments', async (req, res) => {
       hasSpareToner?: boolean;
       isPrinterGood?: boolean;
       printerTpscNumber?: string;
-      printerQuadro?: string;
+      printerLocation?: string;
+      printers?: unknown;
       tonerLevel?: number;
       submittedAt?: string;
     };
@@ -95,12 +122,44 @@ app.post('/api/assessments', async (req, res) => {
 
     const classesJson = JSON.stringify(data.classes ?? []);
 
+    const rawPrinters = Array.isArray(data.printers) ? (data.printers as any[]) : null;
+    const legacyTpsc = typeof data.printerTpscNumber === 'string' ? data.printerTpscNumber : '';
+    const legacyLocation = typeof data.printerLocation === 'string' ? data.printerLocation : '';
+
+    const printers = (rawPrinters ?? [
+      {
+        id: 'legacy',
+        tpscNumber: legacyTpsc,
+        location: legacyLocation,
+        isGood: !!data.isPrinterGood,
+        tonerLevel: Number(data.tonerLevel ?? 0),
+      },
+    ])
+      .map((p: any) => ({
+        id: typeof p.id === 'string' ? p.id : 'p',
+        tpscNumber: typeof p.tpscNumber === 'string' ? p.tpscNumber.trim() : '',
+        location: typeof p.location === 'string' ? p.location.trim() : '',
+        isGood: !!p.isGood,
+        tonerLevel: Math.max(0, Math.min(100, Number(p.tonerLevel ?? 0) || 0)),
+      }))
+      .filter((p: any) => p.tpscNumber || p.location);
+
+    const isPrinterGood = printers.length ? printers.every((p: any) => p.isGood === true) : !!data.isPrinterGood;
+    const tonerLevel = printers.length
+      ? Math.round(printers.reduce((sum: number, p: any) => sum + (Number(p.tonerLevel) || 0), 0) / printers.length)
+      : Number(data.tonerLevel ?? 0);
+
+    const firstPrinter = printers[0] ?? null;
+    const printerTpscNumber = firstPrinter?.tpscNumber ?? legacyTpsc;
+    const printerLocation = firstPrinter?.location ?? legacyLocation;
+    const printersJson = JSON.stringify(printers);
+
     await db.execute({
       sql: `
         INSERT INTO assessments (
-          id, school_name, classes_json, has_spare_toner, is_printer_good, printer_tpsc, printer_quadro, toner_level, submitted_at
+          id, school_name, classes_json, has_spare_toner, is_printer_good, printer_tpsc, printer_quadro, printers_json, toner_level, submitted_at
         ) VALUES (
-          :id, :school_name, :classes_json, :has_spare_toner, :is_printer_good, :printer_tpsc, :printer_quadro, :toner_level, :submitted_at
+          :id, :school_name, :classes_json, :has_spare_toner, :is_printer_good, :printer_tpsc, :printer_quadro, :printers_json, :toner_level, :submitted_at
         )
       `,
       args: {
@@ -108,10 +167,11 @@ app.post('/api/assessments', async (req, res) => {
         school_name: data.schoolName,
         classes_json: classesJson,
         has_spare_toner: data.hasSpareToner ? 1 : 0,
-        is_printer_good: data.isPrinterGood ? 1 : 0,
-        printer_tpsc: typeof data.printerTpscNumber === 'string' ? data.printerTpscNumber : '',
-        printer_quadro: typeof data.printerQuadro === 'string' ? data.printerQuadro : '',
-        toner_level: Number(data.tonerLevel ?? 0),
+        is_printer_good: isPrinterGood ? 1 : 0,
+        printer_tpsc: printerTpscNumber,
+        printer_quadro: printerLocation,
+        printers_json: printersJson,
+        toner_level: Number(tonerLevel ?? 0),
         submitted_at: data.submittedAt,
       },
     });
@@ -121,10 +181,11 @@ app.post('/api/assessments', async (req, res) => {
       schoolName: data.schoolName,
       classes: data.classes ?? [],
       hasSpareToner: !!data.hasSpareToner,
-      isPrinterGood: !!data.isPrinterGood,
-      printerTpscNumber: typeof data.printerTpscNumber === 'string' ? data.printerTpscNumber : '',
-      printerQuadro: typeof data.printerQuadro === 'string' ? data.printerQuadro : '',
-      tonerLevel: Number(data.tonerLevel ?? 0),
+      isPrinterGood,
+      printerTpscNumber,
+      printerLocation,
+      printers,
+      tonerLevel: Number(tonerLevel ?? 0),
       submittedAt: data.submittedAt,
     });
   } catch (err) {

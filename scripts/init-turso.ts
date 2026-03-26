@@ -31,6 +31,7 @@ await db.execute(`
     is_printer_good INTEGER NOT NULL,
     printer_tpsc TEXT,
     printer_quadro TEXT,
+    printers_json TEXT,
     toner_level INTEGER NOT NULL,
     submitted_at TEXT NOT NULL
   );
@@ -43,4 +44,7 @@ if (!cols.has('printer_tpsc')) {
 }
 if (!cols.has('printer_quadro')) {
   await db.execute(`ALTER TABLE assessments ADD COLUMN printer_quadro TEXT;`);
+}
+if (!cols.has('printers_json')) {
+  await db.execute(`ALTER TABLE assessments ADD COLUMN printers_json TEXT;`);
 }
