@@ -8,11 +8,13 @@ const tursoUrl = process.env.TURSO_DATABASE_URL;
 const tursoAuthToken = process.env.TURSO_AUTH_TOKEN;
 
 if (!tursoUrl) {
-  throw new Error('TURSO_DATABASE_URL não definido');
+  console.log('TURSO_DATABASE_URL não definido — ignorando init sem falhar o build.');
+  process.exit(0);
 }
 
 if (tursoUrl.startsWith('libsql:') && !tursoAuthToken) {
-  throw new Error('TURSO_AUTH_TOKEN não definido para URL libsql');
+  console.log('TURSO_AUTH_TOKEN não definido para URL libsql — ignorando init sem falhar o build.');
+  process.exit(0);
 }
 
 const db = createClient({
