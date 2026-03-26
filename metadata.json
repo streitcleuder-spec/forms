@@ -1,0 +1,5 @@
+{
+  "name": "Gestor de Avaliação CAED",
+  "description": "Aplicativo para gestão de turmas e infraestrutura para as provas do CAED.",
+  "requestFramePermissions": []
+}

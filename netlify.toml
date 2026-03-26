@@ -1,0 +1,21 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[functions]
+  directory = "netlify/functions"
+
+[[redirects]]
+  from = "/api/assessments"
+  to = "/.netlify/functions/assessments"
+  status = 200
+
+[[redirects]]
+  from = "/api/assessments/:id"
+  to = "/.netlify/functions/assessments?id=:id"
+  status = 200
+
+[[redirects]]
+  from = "/api/health"
+  to = "/.netlify/functions/health"
+  status = 200
