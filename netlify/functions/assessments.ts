@@ -9,14 +9,20 @@ type NetlifyEvent = {
 const tursoUrl = process.env.TURSO_DATABASE_URL;
 const tursoAuthToken = process.env.TURSO_AUTH_TOKEN;
 
-const db = createClient({
-  url: tursoUrl ?? 'file:caed.db',
-  authToken: tursoAuthToken,
-});
+function getDb() {
+  if (!tursoUrl || !tursoUrl.startsWith('libsql://') || !tursoAuthToken) {
+    throw new Error('Turso não configurado: defina TURSO_DATABASE_URL e TURSO_AUTH_TOKEN nas variáveis do Netlify.');
+  }
+  return createClient({
+    url: tursoUrl,
+    authToken: tursoAuthToken,
+  });
+}
 
 let initialized = false;
 async function ensureInit() {
   if (initialized) return;
+  const db = getDb();
   await db.execute(`
     CREATE TABLE IF NOT EXISTS assessments (
       id TEXT PRIMARY KEY,
@@ -42,6 +48,7 @@ function json(data: unknown, statusCode = 200) {
 export async function handler(event: NetlifyEvent) {
   try {
     await ensureInit();
+    const db = getDb();
 
     if (event.httpMethod === 'GET') {
       const result = await db.execute(
