@@ -29,7 +29,18 @@ await db.execute(`
     classes_json TEXT NOT NULL,
     has_spare_toner INTEGER NOT NULL,
     is_printer_good INTEGER NOT NULL,
+    printer_tpsc TEXT,
+    printer_quadro TEXT,
     toner_level INTEGER NOT NULL,
     submitted_at TEXT NOT NULL
   );
 `);
+
+const colsResult = await db.execute(`PRAGMA table_info(assessments);`);
+const cols = new Set(colsResult.rows.map((r: any) => String(r.name)));
+if (!cols.has('printer_tpsc')) {
+  await db.execute(`ALTER TABLE assessments ADD COLUMN printer_tpsc TEXT;`);
+}
+if (!cols.has('printer_quadro')) {
+  await db.execute(`ALTER TABLE assessments ADD COLUMN printer_quadro TEXT;`);
+}

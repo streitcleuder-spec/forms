@@ -30,10 +30,21 @@ async function ensureInit() {
       classes_json TEXT NOT NULL,
       has_spare_toner INTEGER NOT NULL,
       is_printer_good INTEGER NOT NULL,
+      printer_tpsc TEXT,
+      printer_quadro TEXT,
       toner_level INTEGER NOT NULL,
       submitted_at TEXT NOT NULL
     );
   `);
+
+  const colsResult = await db.execute(`PRAGMA table_info(assessments);`);
+  const cols = new Set(colsResult.rows.map((r: any) => String(r.name)));
+  if (!cols.has('printer_tpsc')) {
+    await db.execute(`ALTER TABLE assessments ADD COLUMN printer_tpsc TEXT;`);
+  }
+  if (!cols.has('printer_quadro')) {
+    await db.execute(`ALTER TABLE assessments ADD COLUMN printer_quadro TEXT;`);
+  }
   initialized = true;
 }
 
@@ -52,7 +63,7 @@ export async function handler(event: NetlifyEvent) {
 
     if (event.httpMethod === 'GET') {
       const result = await db.execute(
-        `SELECT id, school_name, classes_json, has_spare_toner, is_printer_good, toner_level, submitted_at
+        `SELECT id, school_name, classes_json, has_spare_toner, is_printer_good, printer_tpsc, printer_quadro, toner_level, submitted_at
          FROM assessments
          ORDER BY submitted_at DESC`,
       );
@@ -64,6 +75,8 @@ export async function handler(event: NetlifyEvent) {
         classes: JSON.parse(String(row.classes_json ?? '[]')),
         hasSpareToner: toBool(row.has_spare_toner),
         isPrinterGood: toBool(row.is_printer_good),
+        printerTpscNumber: row.printer_tpsc == null ? '' : String(row.printer_tpsc),
+        printerQuadro: row.printer_quadro == null ? '' : String(row.printer_quadro),
         tonerLevel: Number(row.toner_level),
         submittedAt: String(row.submitted_at),
       }));
@@ -83,9 +96,9 @@ export async function handler(event: NetlifyEvent) {
       await db.execute({
         sql: `
           INSERT INTO assessments (
-            id, school_name, classes_json, has_spare_toner, is_printer_good, toner_level, submitted_at
+            id, school_name, classes_json, has_spare_toner, is_printer_good, printer_tpsc, printer_quadro, toner_level, submitted_at
           ) VALUES (
-            :id, :school_name, :classes_json, :has_spare_toner, :is_printer_good, :toner_level, :submitted_at
+            :id, :school_name, :classes_json, :has_spare_toner, :is_printer_good, :printer_tpsc, :printer_quadro, :toner_level, :submitted_at
           )
         `,
         args: {
@@ -94,6 +107,8 @@ export async function handler(event: NetlifyEvent) {
           classes_json: classesJson,
           has_spare_toner: data.hasSpareToner ? 1 : 0,
           is_printer_good: data.isPrinterGood ? 1 : 0,
+          printer_tpsc: typeof data.printerTpscNumber === 'string' ? data.printerTpscNumber : '',
+          printer_quadro: typeof data.printerQuadro === 'string' ? data.printerQuadro : '',
           toner_level: Number(data.tonerLevel ?? 0),
           submitted_at: data.submittedAt,
         },
@@ -105,6 +120,8 @@ export async function handler(event: NetlifyEvent) {
         classes: data.classes ?? [],
         hasSpareToner: !!data.hasSpareToner,
         isPrinterGood: !!data.isPrinterGood,
+        printerTpscNumber: typeof data.printerTpscNumber === 'string' ? data.printerTpscNumber : '',
+        printerQuadro: typeof data.printerQuadro === 'string' ? data.printerQuadro : '',
         tonerLevel: Number(data.tonerLevel ?? 0),
         submittedAt: data.submittedAt,
       }, 201);

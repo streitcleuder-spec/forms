@@ -10,6 +10,8 @@ export interface AssessmentData {
   classes: ClassInfo[];
   hasSpareToner: boolean;
   isPrinterGood: boolean;
+  printerTpscNumber?: string;
+  printerQuadro?: string;
   tonerLevel: number;
   submittedAt: string;
 }

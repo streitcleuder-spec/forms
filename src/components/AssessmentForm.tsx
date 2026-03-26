@@ -14,6 +14,8 @@ export default function AssessmentForm({ onSuccess }: AssessmentFormProps) {
   const [classes, setClasses] = useState<ClassInfo[]>([{ id: crypto.randomUUID(), name: '', studentCount: 0 }]);
   const [hasSpareToner, setHasSpareToner] = useState<boolean | null>(null);
   const [isPrinterGood, setIsPrinterGood] = useState<boolean | null>(null);
+  const [printerTpscNumber, setPrinterTpscNumber] = useState('');
+  const [printerQuadro, setPrinterQuadro] = useState('');
   const [tonerLevel, setTonerLevel] = useState(50);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [lastSubmittedData, setLastSubmittedData] = useState<AssessmentData | null>(null);
@@ -60,6 +62,14 @@ export default function AssessmentForm({ onSuccess }: AssessmentFormProps) {
       setError('Informe as condições da impressora.');
       return;
     }
+    if (!printerTpscNumber.trim()) {
+      setError('Informe o Número TPSC.');
+      return;
+    }
+    if (!printerQuadro.trim()) {
+      setError('Informe o Quadro.');
+      return;
+    }
 
     const data: AssessmentData = {
       id: generateId(),
@@ -67,6 +77,8 @@ export default function AssessmentForm({ onSuccess }: AssessmentFormProps) {
       classes,
       hasSpareToner,
       isPrinterGood,
+      printerTpscNumber,
+      printerQuadro,
       tonerLevel,
       submittedAt: new Date().toISOString()
     };
@@ -126,9 +138,11 @@ export default function AssessmentForm({ onSuccess }: AssessmentFormProps) {
           <p><strong>Total de Alunos:</strong> {lastSubmittedData?.classes.reduce((sum, c) => sum + c.studentCount, 0)}</p>
           <p><strong>Toner Reserva:</strong> {lastSubmittedData?.hasSpareToner ? 'Sim' : 'Não'}</p>
           <p><strong>Impressora:</strong> {lastSubmittedData?.isPrinterGood ? 'Boas condições' : 'Necessita manutenção'}</p>
+          <p><strong>Número TPSC:</strong> {lastSubmittedData?.printerTpscNumber}</p>
+          <p><strong>Quadro:</strong> {lastSubmittedData?.printerQuadro}</p>
           <p><strong>Nível do Toner:</strong> {lastSubmittedData?.tonerLevel}%</p>
           <div className="mt-4">
-            <p className="font-semibold mb-2">Turmas:</p>
+            <p className="font-semibold mb-2">Turmas e alunos que farão a prova:</p>
             <ul className="list-disc pl-5 space-y-1">
               {lastSubmittedData?.classes.map(c => (
                 <li key={c.id}>{c.name}: {c.studentCount} alunos</li>
@@ -173,7 +187,7 @@ export default function AssessmentForm({ onSuccess }: AssessmentFormProps) {
 
         <div className="space-y-4">
           <div className="flex justify-between items-center">
-            <label className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Turmas e Alunos</label>
+            <label className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Turmas e alunos que farão a prova</label>
             <button
               type="button"
               onClick={addClass}
@@ -274,6 +288,30 @@ export default function AssessmentForm({ onSuccess }: AssessmentFormProps) {
               >
                 Não
               </button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">Número TPSC</label>
+                <input
+                  type="text"
+                  required
+                  value={printerTpscNumber}
+                  onChange={(e) => setPrinterTpscNumber(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
+                  placeholder="Ex: 12345"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">Quadro</label>
+                <input
+                  type="text"
+                  required
+                  value={printerQuadro}
+                  onChange={(e) => setPrinterQuadro(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
+                  placeholder="Ex: A"
+                />
+              </div>
             </div>
           </div>
         </div>
