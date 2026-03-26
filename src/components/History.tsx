@@ -16,7 +16,7 @@ export default function History({ history, onDelete, onDownload }: HistoryProps)
           <FileText size={32} />
         </div>
         <h3 className="text-xl font-semibold text-slate-900">Nenhum relatório salvo</h3>
-        <p className="text-slate-500">Os relatórios que você concluir aparecerão aqui.</p>
+        <p className="text-slate-500">Os relatórios que você concluir aparecerão aqui. Para baixar ou visualizar, é necessário informar a senha.</p>
       </div>
     );
   }
